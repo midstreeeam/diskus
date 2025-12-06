@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{crate_name, crate_version, App, AppSettings, Arg};
+use clap::{builder::PossibleValuesParser, Arg, ArgAction, Command};
 use humansize::file_size_opts::{self, FileSizeOpts};
 use humansize::FileSize;
 use num_format::{Locale, ToFormattedString};
@@ -43,52 +43,47 @@ fn print_result(size: u64, errors: &[Error], size_format: &FileSizeOpts, verbose
 }
 
 fn main() {
-    let app = App::new(crate_name!())
-        .setting(AppSettings::ColorAuto)
-        .setting(AppSettings::ColoredHelp)
-        .setting(AppSettings::DeriveDisplayOrder)
-        .setting(AppSettings::UnifiedHelpMessage)
-        .version(crate_version!())
+    let cmd = Command::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
         .about("Compute disk usage for the given filesystem entries")
         .arg(
-            Arg::with_name("path")
-                .multiple(true)
+            Arg::new("path")
+                .action(ArgAction::Append)
                 .help("List of filesystem paths"),
         )
         .arg(
-            Arg::with_name("threads")
+            Arg::new("threads")
                 .long("threads")
-                .short("j")
+                .short('j')
                 .value_name("N")
-                .takes_value(true)
                 .help("Set the number of threads (default: 3 x num cores)"),
         )
         .arg(
-            Arg::with_name("size-format")
+            Arg::new("size-format")
                 .long("size-format")
-                .takes_value(true)
                 .value_name("type")
-                .possible_values(&["decimal", "binary"])
+                .value_parser(PossibleValuesParser::new(["decimal", "binary"]))
                 .default_value("decimal")
                 .help("Output format for file sizes (decimal: MB, binary: MiB)"),
         )
         .arg(
-            Arg::with_name("verbose")
+            Arg::new("verbose")
                 .long("verbose")
-                .short("v")
-                .takes_value(false)
+                .short('v')
+                .action(ArgAction::SetTrue)
                 .help("Do not hide filesystem errors"),
         );
 
     #[cfg(not(windows))]
-    let app = app.arg(
-        Arg::with_name("apparent-size")
+    let cmd = cmd.arg(
+        Arg::new("apparent-size")
             .long("apparent-size")
-            .short("b")
+            .short('b')
+            .action(ArgAction::SetTrue)
             .help("Compute apparent size instead of disk usage"),
     );
 
-    let matches = app.get_matches();
+    let matches = cmd.get_matches();
 
     // Setting the number of threads to 3x the number of cores is a good tradeoff between
     // cold-cache and warm-cache runs. For a cold disk cache, we are limited by disk IO and
@@ -96,27 +91,31 @@ fn main() {
     // plan ahead. On the other hand, the number of threads shouldn't be too high for warm disk
     // caches where we would otherwise pay a higher synchronization overhead.
     let num_threads = matches
-        .value_of("threads")
+        .get_one::<String>("threads")
         .and_then(|t| t.parse().ok())
         .unwrap_or(3 * num_cpus::get());
 
     let paths: Vec<PathBuf> = matches
-        .values_of("path")
+        .get_many::<String>("path")
         .map(|paths| paths.map(PathBuf::from).collect())
         .unwrap_or_else(|| vec![PathBuf::from(".")]);
 
-    let filesize_type = if matches.is_present("apparent-size") {
+    #[cfg(not(windows))]
+    let filesize_type = if matches.get_flag("apparent-size") {
         FilesizeType::ApparentSize
     } else {
         FilesizeType::DiskUsage
     };
 
-    let size_format = match matches.value_of("size-format") {
+    #[cfg(windows)]
+    let filesize_type = FilesizeType::DiskUsage;
+
+    let size_format = match matches.get_one::<String>("size-format").map(|s| s.as_str()) {
         Some("decimal") => file_size_opts::DECIMAL,
         _ => file_size_opts::BINARY,
     };
 
-    let verbose = matches.is_present("verbose");
+    let verbose = matches.get_flag("verbose");
 
     let walk = Walk::new(&paths, num_threads, filesize_type);
     let (size, errors) = walk.run();
