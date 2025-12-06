@@ -1,21 +1,42 @@
-# unreleased
-
-## Changes
+# v0.9.0
 
 
 ## Features
 
+- Added `--directories` option with values `auto`/`included`/`excluded` to control whether directory sizes are counted
+- Added `apparent_size()` builder method as shorthand for `.count_type(CountType::ApparentSize)`
 
 ## Bugfixes
 
+- Fixed directory counting to match `du` behavior:
+  - Disk usage mode: directories are included (matches `du -s`)
+  - Apparent size mode: directories are excluded (matches `du -sb`)
 
-## Other
+## Library
+
+- **Breaking**: Complete redesign of the API
+  - Renamed `Walk` to `DiskUsage`
+  - Renamed `FilesizeType` to `CountType`
+  - Changed to a builder pattern: `DiskUsage::new(&paths).apparent_size().count()`
+  - `count()` now returns a `DiskUsageResult` struct instead of a tuple
+  - `new()` now accepts `impl IntoIterator<Item = P>` where `P: AsRef<Path>`
+- Default number of workers (3× CPU cores) is now set in the library, not the CLI
 
 
-## Packaging
+# v0.8.0
 
-# v0.6.0
+## Changes
 
+- Updated Rust edition from 2018 to 2021
+- Updated dependencies
+- CI fixes
+
+# v0.7.0
+
+## Changes
+
+- Migrated CI from Travis to GitHub Actions
+- Added CHANGELOG file
 - Updated dependencies
 
 # v0.6.0
@@ -64,4 +85,3 @@ see #25
 # v0.1.0
 
 Initial release
-
