@@ -1,13 +1,12 @@
 use std::path::PathBuf;
 
 use clap::{builder::PossibleValuesParser, Arg, ArgAction, Command};
-use humansize::file_size_opts::{self, FileSizeOpts};
-use humansize::FileSize;
+use humansize::{format_size, FormatSizeOptions, BINARY, DECIMAL};
 use num_format::{Locale, ToFormattedString};
 
 use diskus::{Error, FilesizeType, Walk};
 
-fn print_result(size: u64, errors: &[Error], size_format: &FileSizeOpts, verbose: bool) {
+fn print_result(size: u64, errors: &[Error], size_format: FormatSizeOptions, verbose: bool) {
     if verbose {
         for err in errors {
             match err {
@@ -34,7 +33,7 @@ fn print_result(size: u64, errors: &[Error], size_format: &FileSizeOpts, verbose
     if atty::is(atty::Stream::Stdout) {
         println!(
             "{} ({:} bytes)",
-            size.file_size(size_format).unwrap(),
+            format_size(size, size_format),
             size.to_formatted_string(&Locale::en)
         );
     } else {
@@ -111,13 +110,13 @@ fn main() {
     let filesize_type = FilesizeType::DiskUsage;
 
     let size_format = match matches.get_one::<String>("size-format").map(|s| s.as_str()) {
-        Some("decimal") => file_size_opts::DECIMAL,
-        _ => file_size_opts::BINARY,
+        Some("decimal") => DECIMAL,
+        _ => BINARY,
     };
 
     let verbose = matches.get_flag("verbose");
 
     let walk = Walk::new(&paths, num_threads, filesize_type);
     let (size, errors) = walk.run();
-    print_result(size, &errors, &size_format, verbose);
+    print_result(size, &errors, size_format, verbose);
 }
