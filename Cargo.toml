@@ -13,11 +13,17 @@ rust-version = "1.76"
 
 [features]
 default = ["cli"]
-cli = ["dep:clap", "dep:humansize", "dep:num-format", "dep:atty", "dep:num_cpus"]
+cli = [
+    "dep:clap",
+    "dep:humansize",
+    "dep:num-format",
+    "dep:atty",
+    "dep:num_cpus",
+]
 
 [dependencies]
 # Library dependencies
-rayon = "1.0"
+rayon = "1.11"
 crossbeam-channel = "0.5"
 
 # CLI dependencies (optional)
@@ -25,7 +31,11 @@ num_cpus = { version = "1.0", optional = true }
 humansize = { version = "1.1", optional = true }
 num-format = { version = "0.4", optional = true }
 atty = { version = "0.2", optional = true }
-clap = { version = "2", features = ["suggestions", "color", "wrap_help"], optional = true }
+clap = { version = "2", features = [
+    "suggestions",
+    "color",
+    "wrap_help",
+], optional = true }
 
 [dev-dependencies]
 tempdir = "0.3"
