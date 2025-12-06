@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread;
 
 use crossbeam_channel as channel;
@@ -23,9 +23,58 @@ pub enum Directories {
     Excluded,
 }
 
+#[derive(Debug)]
 pub enum Error {
     NoMetadataForPath(PathBuf),
     CouldNotReadDir(PathBuf),
+}
+
+/// The result of a disk usage computation.
+#[derive(Debug)]
+pub struct DiskUsageResult {
+    size_in_bytes: u64,
+    errors: Vec<Error>,
+}
+
+impl DiskUsageResult {
+    /// Returns the total size in bytes, or the errors if any occurred.
+    pub fn size_in_bytes(&self) -> Result<u64, &[Error]> {
+        if self.errors.is_empty() {
+            Ok(self.size_in_bytes)
+        } else {
+            Err(&self.errors)
+        }
+    }
+
+    /// Ignore any errors and return a result that provides direct access to the size.
+    pub fn ignore_errors(&self) -> UncheckedDiskUsageResult {
+        UncheckedDiskUsageResult {
+            size_in_bytes: self.size_in_bytes,
+        }
+    }
+
+    /// Returns any errors encountered during traversal.
+    pub fn errors(&self) -> &[Error] {
+        &self.errors
+    }
+
+    /// Returns `true` if no errors occurred during traversal.
+    pub fn is_ok(&self) -> bool {
+        self.errors.is_empty()
+    }
+}
+
+/// A disk usage result where errors have been explicitly ignored.
+#[derive(Debug)]
+pub struct UncheckedDiskUsageResult {
+    size_in_bytes: u64,
+}
+
+impl UncheckedDiskUsageResult {
+    /// Returns the total size in bytes.
+    pub fn size_in_bytes(&self) -> u64 {
+        self.size_in_bytes
+    }
 }
 
 enum Message {
@@ -88,19 +137,22 @@ fn walk(
     });
 }
 
-/// Configure and run a parallel directory walk to file system usage.
-pub struct DiskUsage<'a> {
-    root_directories: &'a [PathBuf],
+/// Configure and run a parallel directory walk to compute file system usage.
+pub struct DiskUsage {
+    root_directories: Vec<PathBuf>,
     num_workers: usize,
     count_type: CountType,
     directories: Directories,
 }
 
-impl<'a> DiskUsage<'a> {
+impl DiskUsage {
     /// Create a new DiskUsage builder for the given root directories.
-    pub fn new(root_directories: &'a [PathBuf]) -> DiskUsage<'a> {
+    pub fn new<P: AsRef<Path>>(root_directories: impl IntoIterator<Item = P>) -> DiskUsage {
         DiskUsage {
-            root_directories,
+            root_directories: root_directories
+                .into_iter()
+                .map(|p| p.as_ref().to_path_buf())
+                .collect(),
             num_workers: 1,
             count_type: CountType::default(),
             directories: Directories::default(),
@@ -125,14 +177,27 @@ impl<'a> DiskUsage<'a> {
         self
     }
 
-    /// Run the count and return the total size in bytes, and any errors encountered.
-    pub fn count(&self) -> (u64, Vec<Error>) {
+    /// Run the count and return the result.
+    pub fn count(&self) -> DiskUsageResult {
+        let (size_in_bytes, errors) = self.count_inner();
+        DiskUsageResult {
+            size_in_bytes,
+            errors,
+        }
+    }
+
+    /// Run the count and return only the size, ignoring any errors.
+    pub fn count_ignoring_errors(&self) -> u64 {
+        self.count_inner().0
+    }
+
+    fn count_inner(&self) -> (u64, Vec<Error>) {
         let (tx, rx) = channel::unbounded();
 
         let receiver_thread = thread::spawn(move || {
             let mut total = 0;
             let mut ids = HashSet::new();
-            let mut error_messages: Vec<Error> = Vec::new();
+            let mut errors: Vec<Error> = Vec::new();
             for msg in rx {
                 match msg {
                     Message::SizeEntry(unique_id, size) => {
@@ -146,18 +211,25 @@ impl<'a> DiskUsage<'a> {
                         }
                     }
                     Message::Error { error } => {
-                        error_messages.push(error);
+                        errors.push(error);
                     }
                 }
             }
-            (total, error_messages)
+            (total, errors)
         });
 
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(self.num_workers)
             .build()
             .unwrap();
-        pool.install(|| walk(tx, self.root_directories, self.count_type, self.directories));
+        pool.install(|| {
+            walk(
+                tx,
+                &self.root_directories,
+                self.count_type,
+                self.directories,
+            )
+        });
 
         receiver_thread.join().unwrap()
     }

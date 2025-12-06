@@ -4,11 +4,11 @@ use clap::{builder::PossibleValuesParser, Arg, ArgAction, Command};
 use humansize::{format_size, FormatSizeOptions, BINARY, DECIMAL};
 use num_format::{Locale, ToFormattedString};
 
-use diskus::{CountType, Directories, DiskUsage, Error};
+use diskus::{CountType, Directories, DiskUsage, DiskUsageResult, Error};
 
-fn print_result(size: u64, errors: &[Error], size_format: FormatSizeOptions, verbose: bool) {
+fn print_result(result: &DiskUsageResult, size_format: FormatSizeOptions, verbose: bool) {
     if verbose {
-        for err in errors {
+        for err in result.errors() {
             match err {
                 Error::NoMetadataForPath(path) => {
                     eprintln!(
@@ -24,12 +24,13 @@ fn print_result(size: u64, errors: &[Error], size_format: FormatSizeOptions, ver
                 }
             }
         }
-    } else if !errors.is_empty() {
+    } else if !result.is_ok() {
         eprintln!(
             "[diskus warning] the results may be tainted. Re-run with -v/--verbose to print all errors."
         );
     }
 
+    let size = result.ignore_errors().size_in_bytes();
     if atty::is(atty::Stream::Stdout) {
         println!(
             "{} ({:} bytes)",
@@ -130,10 +131,10 @@ fn main() {
         _ => Directories::Auto,
     };
 
-    let (size, errors) = DiskUsage::new(&paths)
+    let result = DiskUsage::new(paths)
         .num_workers(num_threads)
         .count_type(count_type)
         .directories(directories)
         .count();
-    print_result(size, &errors, size_format, verbose);
+    print_result(&result, size_format, verbose);
 }

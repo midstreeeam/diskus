@@ -20,13 +20,11 @@ fn size_of_files_in_nested_directories() -> Result<(), Box<dyn Error>> {
     let file2_path = nested_dir.join("file-200-byte");
     File::create(&file2_path)?.write_all(&[0u8; 200])?;
 
-    let root_directories = vec![tmp_dir.path().to_path_buf()];
-    let (size_in_bytes, errors) = DiskUsage::new(&root_directories)
+    let result = DiskUsage::new(&[tmp_dir])
         .count_type(CountType::ApparentSize)
         .count();
 
-    assert!(errors.is_empty());
-    assert_eq!(size_in_bytes, 300);
+    assert_eq!(result.size_in_bytes().expect("no errors"), 300);
 
     Ok(())
 }
