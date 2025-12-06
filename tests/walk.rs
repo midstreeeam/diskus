@@ -4,7 +4,7 @@ use std::io::Write;
 
 use tempdir::TempDir;
 
-use diskus::{CountType, DiskUsage};
+use diskus::DiskUsage;
 
 #[test]
 fn size_of_files_in_nested_directories() -> Result<(), Box<dyn Error>> {

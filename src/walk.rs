@@ -170,6 +170,8 @@ impl DiskUsage {
         3 * std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(1)
+            // To limit startup overhead on massively parallel machines, don't use more than 64 threads
+            .min(64)
     }
 
     /// Set the number of workers to use for parallel traversal.
