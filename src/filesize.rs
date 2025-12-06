@@ -1,18 +1,21 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FilesizeType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CountType {
+    /// Count the disk usage of files (the actual space used on disk).
+    #[default]
     DiskUsage,
+    /// Count the apparent size of files (the number of bytes reported by `stat`).
     ApparentSize,
 }
 
-impl FilesizeType {
+impl CountType {
     #[cfg(not(windows))]
     pub fn size(self, metadata: &std::fs::Metadata) -> u64 {
         use std::os::unix::fs::MetadataExt;
 
         match self {
-            FilesizeType::ApparentSize => metadata.len(),
+            CountType::ApparentSize => metadata.len(),
             // block size is always 512 byte, see stat(2) manpage
-            FilesizeType::DiskUsage => metadata.blocks() * 512,
+            CountType::DiskUsage => metadata.blocks() * 512,
         }
     }
 

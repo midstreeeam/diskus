@@ -4,7 +4,7 @@ use clap::{builder::PossibleValuesParser, Arg, ArgAction, Command};
 use humansize::{format_size, FormatSizeOptions, BINARY, DECIMAL};
 use num_format::{Locale, ToFormattedString};
 
-use diskus::{Directories, Error, FilesizeType, Walk};
+use diskus::{CountType, Directories, DiskUsage, Error};
 
 fn print_result(size: u64, errors: &[Error], size_format: FormatSizeOptions, verbose: bool) {
     if verbose {
@@ -108,14 +108,14 @@ fn main() {
         .unwrap_or_else(|| vec![PathBuf::from(".")]);
 
     #[cfg(not(windows))]
-    let filesize_type = if matches.get_flag("apparent-size") {
-        FilesizeType::ApparentSize
+    let count_type = if matches.get_flag("apparent-size") {
+        CountType::ApparentSize
     } else {
-        FilesizeType::DiskUsage
+        CountType::DiskUsage
     };
 
     #[cfg(windows)]
-    let filesize_type = FilesizeType::DiskUsage;
+    let count_type = CountType::DiskUsage;
 
     let size_format = match matches.get_one::<String>("size-format").map(|s| s.as_str()) {
         Some("decimal") => DECIMAL,
@@ -130,7 +130,10 @@ fn main() {
         _ => Directories::Auto,
     };
 
-    let walk = Walk::new(&paths, num_threads, filesize_type, directories);
-    let (size, errors) = walk.run();
+    let (size, errors) = DiskUsage::new(&paths)
+        .num_workers(num_threads)
+        .count_type(count_type)
+        .directories(directories)
+        .count();
     print_result(size, &errors, size_format, verbose);
 }

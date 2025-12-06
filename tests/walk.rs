@@ -4,7 +4,7 @@ use std::io::Write;
 
 use tempdir::TempDir;
 
-use diskus::{Directories, FilesizeType, Walk};
+use diskus::{CountType, DiskUsage};
 
 #[test]
 fn size_of_files_in_nested_directories() -> Result<(), Box<dyn Error>> {
@@ -20,15 +20,10 @@ fn size_of_files_in_nested_directories() -> Result<(), Box<dyn Error>> {
     let file2_path = nested_dir.join("file-200-byte");
     File::create(&file2_path)?.write_all(&[0u8; 200])?;
 
-    let num_threads = 1;
-    let root_directories = &[tmp_dir.path().to_path_buf()];
-    let walk = Walk::new(
-        root_directories,
-        num_threads,
-        FilesizeType::ApparentSize,
-        Directories::Auto,
-    );
-    let (size_in_bytes, errors) = walk.run();
+    let root_directories = vec![tmp_dir.path().to_path_buf()];
+    let (size_in_bytes, errors) = DiskUsage::new(&root_directories)
+        .count_type(CountType::ApparentSize)
+        .count();
 
     assert!(errors.is_empty());
     assert_eq!(size_in_bytes, 300);

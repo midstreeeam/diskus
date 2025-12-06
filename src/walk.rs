@@ -7,18 +7,14 @@ use crossbeam_channel as channel;
 
 use rayon::{self, prelude::*};
 
-use crate::filesize::FilesizeType;
+use crate::filesize::CountType;
 use crate::unique_id::{generate_unique_id, UniqueID};
 
 /// Specifies whether directory sizes should be counted.
-///
-/// The default behavior of `du` differs by mode:
-/// - Disk usage (`du -s`): counts files and directories
-/// - Apparent size (`du -sb`): counts files only
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Directories {
-    /// Automatically match `du` behavior based on filesize type:
-    /// directories are included for disk usage, excluded for apparent size.
+    /// Automatically match `du` behavior based on the type of the size being counted:
+    /// directories are included for disk usage, but excluded for apparent size.
     #[default]
     Auto,
     /// Count both files and directories (matches `du -s` behavior).
@@ -40,7 +36,7 @@ enum Message {
 fn walk(
     tx: channel::Sender<Message>,
     entries: &[PathBuf],
-    filesize_type: FilesizeType,
+    filesize_type: CountType,
     directories: Directories,
 ) {
     entries.into_par_iter().for_each_with(tx, |tx_ref, entry| {
@@ -53,7 +49,7 @@ fn walk(
                 Directories::Auto => {
                     // Auto mode matches `du` behavior: directories are included for
                     // disk usage but excluded for apparent size.
-                    !is_dir || filesize_type == FilesizeType::DiskUsage
+                    !is_dir || filesize_type == CountType::DiskUsage
                 }
             };
 
@@ -92,29 +88,45 @@ fn walk(
     });
 }
 
-pub struct Walk<'a> {
+/// Configure and run a parallel directory walk to file system usage.
+pub struct DiskUsage<'a> {
     root_directories: &'a [PathBuf],
-    num_threads: usize,
-    filesize_type: FilesizeType,
+    num_workers: usize,
+    count_type: CountType,
     directories: Directories,
 }
 
-impl<'a> Walk<'a> {
-    pub fn new(
-        root_directories: &'a [PathBuf],
-        num_threads: usize,
-        filesize_type: FilesizeType,
-        directories: Directories,
-    ) -> Walk<'a> {
-        Walk {
+impl<'a> DiskUsage<'a> {
+    /// Create a new DiskUsage builder for the given root directories.
+    pub fn new(root_directories: &'a [PathBuf]) -> DiskUsage<'a> {
+        DiskUsage {
             root_directories,
-            num_threads,
-            filesize_type,
-            directories,
+            num_workers: 1,
+            count_type: CountType::default(),
+            directories: Directories::default(),
         }
     }
 
-    pub fn run(&self) -> (u64, Vec<Error>) {
+    /// Set the number of workers to use for parallel traversal.
+    pub fn num_workers(mut self, num_workers: usize) -> Self {
+        self.num_workers = num_workers;
+        self
+    }
+
+    /// Specify the type of the count (disk usage or apparent size).
+    pub fn count_type(mut self, count_type: CountType) -> Self {
+        self.count_type = count_type;
+        self
+    }
+
+    /// Set whether to count directory sizes.
+    pub fn directories(mut self, directories: Directories) -> Self {
+        self.directories = directories;
+        self
+    }
+
+    /// Run the count and return the total size in bytes, and any errors encountered.
+    pub fn count(&self) -> (u64, Vec<Error>) {
         let (tx, rx) = channel::unbounded();
 
         let receiver_thread = thread::spawn(move || {
@@ -142,17 +154,10 @@ impl<'a> Walk<'a> {
         });
 
         let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(self.num_threads)
+            .num_threads(self.num_workers)
             .build()
             .unwrap();
-        pool.install(|| {
-            walk(
-                tx,
-                self.root_directories,
-                self.filesize_type,
-                self.directories,
-            )
-        });
+        pool.install(|| walk(tx, self.root_directories, self.count_type, self.directories));
 
         receiver_thread.join().unwrap()
     }
