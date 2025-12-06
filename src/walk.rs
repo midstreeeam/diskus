@@ -10,6 +10,23 @@ use rayon::{self, prelude::*};
 use crate::filesize::FilesizeType;
 use crate::unique_id::{generate_unique_id, UniqueID};
 
+/// Specifies whether directory sizes should be counted.
+///
+/// The default behavior of `du` differs by mode:
+/// - Disk usage (`du -s`): counts files and directories
+/// - Apparent size (`du -sb`): counts files only
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Directories {
+    /// Automatically match `du` behavior based on filesize type:
+    /// directories are included for disk usage, excluded for apparent size.
+    #[default]
+    Auto,
+    /// Count both files and directories (matches `du -s` behavior).
+    Included,
+    /// Count only files, not directories (matches `du -sb` behavior).
+    Excluded,
+}
+
 pub enum Error {
     NoMetadataForPath(PathBuf),
     CouldNotReadDir(PathBuf),
@@ -20,16 +37,33 @@ enum Message {
     Error { error: Error },
 }
 
-fn walk(tx: channel::Sender<Message>, entries: &[PathBuf], filesize_type: FilesizeType) {
+fn walk(
+    tx: channel::Sender<Message>,
+    entries: &[PathBuf],
+    filesize_type: FilesizeType,
+    directories: Directories,
+) {
     entries.into_par_iter().for_each_with(tx, |tx_ref, entry| {
         if let Ok(metadata) = entry.symlink_metadata() {
-            let unique_id = generate_unique_id(&metadata);
+            let is_dir = metadata.is_dir();
 
-            let size = filesize_type.size(&metadata);
+            let should_count = match directories {
+                Directories::Included => true,
+                Directories::Excluded => !is_dir,
+                Directories::Auto => {
+                    // Auto mode matches `du` behavior: directories are included for
+                    // disk usage but excluded for apparent size.
+                    !is_dir || filesize_type == FilesizeType::DiskUsage
+                }
+            };
 
-            tx_ref.send(Message::SizeEntry(unique_id, size)).unwrap();
+            if should_count {
+                let unique_id = generate_unique_id(&metadata);
+                let size = filesize_type.size(&metadata);
+                tx_ref.send(Message::SizeEntry(unique_id, size)).unwrap();
+            }
 
-            if metadata.is_dir() {
+            if is_dir {
                 let mut children = vec![];
                 match fs::read_dir(entry) {
                     Ok(child_entries) => {
@@ -46,7 +80,7 @@ fn walk(tx: channel::Sender<Message>, entries: &[PathBuf], filesize_type: Filesi
                     }
                 }
 
-                walk(tx_ref.clone(), &children[..], filesize_type);
+                walk(tx_ref.clone(), &children[..], filesize_type, directories);
             };
         } else {
             tx_ref
@@ -62,6 +96,7 @@ pub struct Walk<'a> {
     root_directories: &'a [PathBuf],
     num_threads: usize,
     filesize_type: FilesizeType,
+    directories: Directories,
 }
 
 impl<'a> Walk<'a> {
@@ -69,11 +104,13 @@ impl<'a> Walk<'a> {
         root_directories: &'a [PathBuf],
         num_threads: usize,
         filesize_type: FilesizeType,
+        directories: Directories,
     ) -> Walk<'a> {
         Walk {
             root_directories,
             num_threads,
             filesize_type,
+            directories,
         }
     }
 
@@ -108,7 +145,14 @@ impl<'a> Walk<'a> {
             .num_threads(self.num_threads)
             .build()
             .unwrap();
-        pool.install(|| walk(tx, self.root_directories, self.filesize_type));
+        pool.install(|| {
+            walk(
+                tx,
+                self.root_directories,
+                self.filesize_type,
+                self.directories,
+            )
+        });
 
         receiver_thread.join().unwrap()
     }

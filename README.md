@@ -120,6 +120,15 @@ If you have Rust 1.76 or higher, you can install `diskus` from source via `cargo
 cargo install diskus
 ```
 
+## Directory counting
+
+`diskus` matches the behavior of `du` regarding directory entries:
+
+- **Disk usage mode** (default): Directories are included in the total size, matching `du -s`.
+- **Apparent size mode** (`-b`): Only files are counted, matching `du -sb`.
+
+You can override this with `--directories=included` or `--directories=excluded`.
+
 ## Windows caveats
 
 Windows-internal tools such as Powershell, Explorer or `dir` are not respecting hardlinks or

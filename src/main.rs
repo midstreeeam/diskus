@@ -4,7 +4,7 @@ use clap::{builder::PossibleValuesParser, Arg, ArgAction, Command};
 use humansize::{format_size, FormatSizeOptions, BINARY, DECIMAL};
 use num_format::{Locale, ToFormattedString};
 
-use diskus::{Error, FilesizeType, Walk};
+use diskus::{Directories, Error, FilesizeType, Walk};
 
 fn print_result(size: u64, errors: &[Error], size_format: FormatSizeOptions, verbose: bool) {
     if verbose {
@@ -71,6 +71,14 @@ fn main() {
                 .short('v')
                 .action(ArgAction::SetTrue)
                 .help("Do not hide filesystem errors"),
+        )
+        .arg(
+            Arg::new("directories")
+                .long("directories")
+                .value_name("mode")
+                .value_parser(PossibleValuesParser::new(["auto", "included", "excluded"]))
+                .default_value("auto")
+                .help("Whether to count directory sizes (auto: included for disk usage, excluded for apparent size)"),
         );
 
     #[cfg(not(windows))]
@@ -116,7 +124,13 @@ fn main() {
 
     let verbose = matches.get_flag("verbose");
 
-    let walk = Walk::new(&paths, num_threads, filesize_type);
+    let directories = match matches.get_one::<String>("directories").map(|s| s.as_str()) {
+        Some("included") => Directories::Included,
+        Some("excluded") => Directories::Excluded,
+        _ => Directories::Auto,
+    };
+
+    let walk = Walk::new(&paths, num_threads, filesize_type, directories);
     let (size, errors) = walk.run();
     print_result(size, &errors, size_format, verbose);
 }

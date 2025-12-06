@@ -4,7 +4,7 @@ use std::io::Write;
 
 use tempdir::TempDir;
 
-use diskus::{FilesizeType, Walk};
+use diskus::{Directories, FilesizeType, Walk};
 
 #[test]
 fn size_of_single_file() -> Result<(), Box<dyn Error>> {
@@ -15,7 +15,7 @@ fn size_of_single_file() -> Result<(), Box<dyn Error>> {
 
     let num_threads = 1;
     let root_directories = &[file_path];
-    let walk = Walk::new(root_directories, num_threads, FilesizeType::ApparentSize);
+    let walk = Walk::new(root_directories, num_threads, FilesizeType::ApparentSize, Directories::Auto);
     let (size_in_bytes, errors) = walk.run();
 
     assert!(errors.is_empty());
