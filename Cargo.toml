@@ -9,7 +9,7 @@ readme = "README.md"
 repository = "https://github.com/sharkdp/diskus"
 version = "0.9.0"
 edition = "2021"
-rust-version = "1.76"
+rust-version = "1.80"
 
 [features]
 default = ["cli"]
