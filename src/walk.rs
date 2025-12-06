@@ -64,12 +64,12 @@ pub struct Walk<'a> {
     filesize_type: FilesizeType,
 }
 
-impl Walk<'_> {
+impl<'a> Walk<'a> {
     pub fn new(
-        root_directories: &[PathBuf],
+        root_directories: &'a [PathBuf],
         num_threads: usize,
         filesize_type: FilesizeType,
-    ) -> Walk {
+    ) -> Walk<'a> {
         Walk {
             root_directories,
             num_threads,
