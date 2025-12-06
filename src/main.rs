@@ -93,15 +93,9 @@ fn main() {
 
     let matches = cmd.get_matches();
 
-    // Setting the number of threads to 3x the number of cores is a good tradeoff between
-    // cold-cache and warm-cache runs. For a cold disk cache, we are limited by disk IO and
-    // therefore want the number of threads to be rather large in order for the IO scheduler to
-    // plan ahead. On the other hand, the number of threads shouldn't be too high for warm disk
-    // caches where we would otherwise pay a higher synchronization overhead.
     let num_workers = matches
         .get_one::<String>("threads")
-        .and_then(|t| t.parse().ok())
-        .unwrap_or(3 * num_cpus::get());
+        .and_then(|t| t.parse().ok());
 
     let paths: Vec<PathBuf> = matches
         .get_many::<String>("path")
@@ -131,10 +125,12 @@ fn main() {
         _ => Directories::Auto,
     };
 
-    let result = DiskUsage::new(paths)
-        .num_workers(num_workers)
+    let mut disk_usage = DiskUsage::new(paths)
         .count_type(count_type)
-        .directories(directories)
-        .count();
+        .directories(directories);
+    if let Some(n) = num_workers {
+        disk_usage = disk_usage.num_workers(n);
+    }
+    let result = disk_usage.count();
     print_result(&result, size_format, verbose);
 }

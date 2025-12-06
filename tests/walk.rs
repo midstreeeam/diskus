@@ -20,9 +20,7 @@ fn size_of_files_in_nested_directories() -> Result<(), Box<dyn Error>> {
     let file2_path = nested_dir.join("file-200-byte");
     File::create(&file2_path)?.write_all(&[0u8; 200])?;
 
-    let result = DiskUsage::new(&[tmp_dir])
-        .count_type(CountType::ApparentSize)
-        .count();
+    let result = DiskUsage::new(&[tmp_dir]).apparent_size().count();
 
     assert_eq!(result.size_in_bytes().expect("no errors"), 300);
 

@@ -153,13 +153,29 @@ impl DiskUsage {
                 .into_iter()
                 .map(|p| p.as_ref().to_path_buf())
                 .collect(),
-            num_workers: 1,
+            num_workers: Self::default_num_workers(),
             count_type: CountType::default(),
             directories: Directories::default(),
         }
     }
 
+    /// Returns the default number of workers (3 × number of CPU cores).
+    ///
+    /// This is a good tradeoff between cold-cache and warm-cache performance.
+    /// For cold disk caches, more threads help the IO scheduler plan ahead.
+    /// For warm caches, too many threads add synchronization overhead.
+    ///
+    /// <https://github.com/sharkdp/diskus/issues/38#issuecomment-612772867>
+    fn default_num_workers() -> usize {
+        3 * std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+    }
+
     /// Set the number of workers to use for parallel traversal.
+    ///
+    /// By default, this is set to three times the number of CPU cores, which
+    /// results in a good performance tradeoff for both cold and warm disk caches.
     pub fn num_workers(mut self, num_workers: usize) -> Self {
         self.num_workers = num_workers;
         self
@@ -168,6 +184,12 @@ impl DiskUsage {
     /// Specify the type of the count (disk usage or apparent size).
     pub fn count_type(mut self, count_type: CountType) -> Self {
         self.count_type = count_type;
+        self
+    }
+
+    /// Configure the count to use apparent size instead of disk usage.
+    pub fn apparent_size(mut self) -> Self {
+        self.count_type = CountType::ApparentSize;
         self
     }
 
