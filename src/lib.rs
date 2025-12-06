@@ -1,12 +1,9 @@
 //! # Basic usage
 //!
 //! ```
-//! use std::path::PathBuf;
-//! use diskus::{DiskUsage, CountType};
+//! use diskus::DiskUsage;
 //!
-//! let result = DiskUsage::new(&["."])
-//!     .num_workers(4)
-//!     .count();
+//! let result = DiskUsage::new(&["."]).count();
 //! let size_in_bytes = result.ignore_errors().size_in_bytes();
 //! ```
 

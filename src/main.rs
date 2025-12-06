@@ -98,7 +98,7 @@ fn main() {
     // therefore want the number of threads to be rather large in order for the IO scheduler to
     // plan ahead. On the other hand, the number of threads shouldn't be too high for warm disk
     // caches where we would otherwise pay a higher synchronization overhead.
-    let num_threads = matches
+    let num_workers = matches
         .get_one::<String>("threads")
         .and_then(|t| t.parse().ok())
         .unwrap_or(3 * num_cpus::get());
@@ -132,7 +132,7 @@ fn main() {
     };
 
     let result = DiskUsage::new(paths)
-        .num_workers(num_threads)
+        .num_workers(num_workers)
         .count_type(count_type)
         .directories(directories)
         .count();
