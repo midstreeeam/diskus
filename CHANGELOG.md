@@ -2,6 +2,7 @@
 
 - Improved `diskus -l`/`--list` to print a sorted direct-child size chart with human-readable sizes, proportional bars, percentages, and root-relative paths.
 - Added the `ku` command as a shortcut for the refined direct-child listing view.
+- Updated CI to publish the current `Cargo.toml` version automatically after a successful `master` build when that release does not already exist.
 
 # v0.9.1
 
