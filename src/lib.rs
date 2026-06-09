@@ -12,4 +12,6 @@ mod unique_id;
 pub mod walk;
 
 pub use crate::filesize::CountType;
-pub use crate::walk::{Directories, DiskUsage, DiskUsageResult, Error};
+pub use crate::walk::{
+    Directories, DiskUsage, DiskUsageEntriesResult, DiskUsageEntry, DiskUsageResult, Error,
+};

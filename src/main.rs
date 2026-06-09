@@ -5,25 +5,29 @@ use clap::{builder::PossibleValuesParser, Arg, ArgAction, Command};
 use humansize::{format_size, FormatSizeOptions, BINARY, DECIMAL};
 use num_format::{Locale, ToFormattedString};
 
-use diskus::{CountType, Directories, DiskUsage, DiskUsageResult, Error};
+use diskus::{CountType, Directories, DiskUsage, DiskUsageEntriesResult, DiskUsageResult, Error};
+
+fn print_error(err: &Error) {
+    match err {
+        Error::NoMetadataForPath(path) => {
+            eprintln!(
+                "diskus: could not retrieve metadata for path '{}'",
+                path.to_string_lossy()
+            );
+        }
+        Error::CouldNotReadDir(path) => {
+            eprintln!(
+                "diskus: could not read contents of directory '{}'",
+                path.to_string_lossy()
+            );
+        }
+    }
+}
 
 fn print_result(result: &DiskUsageResult, size_format: FormatSizeOptions, verbose: bool) {
     if verbose {
         for err in result.errors() {
-            match err {
-                Error::NoMetadataForPath(path) => {
-                    eprintln!(
-                        "diskus: could not retrieve metadata for path '{}'",
-                        path.to_string_lossy()
-                    );
-                }
-                Error::CouldNotReadDir(path) => {
-                    eprintln!(
-                        "diskus: could not read contents of directory '{}'",
-                        path.to_string_lossy()
-                    );
-                }
-            }
+            print_error(err);
         }
     } else if !result.is_ok() {
         eprintln!(
@@ -43,6 +47,38 @@ fn print_result(result: &DiskUsageResult, size_format: FormatSizeOptions, verbos
     }
 }
 
+fn print_entries(result: &DiskUsageEntriesResult, size_format: FormatSizeOptions, verbose: bool) {
+    if verbose {
+        for err in result.errors() {
+            print_error(err);
+        }
+        for entry in result.entries() {
+            for err in entry.result().errors() {
+                print_error(err);
+            }
+        }
+    } else if !result.is_ok() {
+        eprintln!(
+            "[diskus warning] the results may be tainted. Re-run with -v/--verbose to print all errors."
+        );
+    }
+
+    let is_terminal = stdout().is_terminal();
+    for entry in result.entries() {
+        let size = entry.result().ignore_errors().size_in_bytes();
+        if is_terminal {
+            println!(
+                "{} ({:} bytes)\t{}",
+                format_size(size, size_format),
+                size.to_formatted_string(&Locale::en),
+                entry.path().to_string_lossy()
+            );
+        } else {
+            println!("{}\t{}", size, entry.path().to_string_lossy());
+        }
+    }
+}
+
 fn main() {
     let cmd = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
@@ -51,6 +87,13 @@ fn main() {
             Arg::new("path")
                 .action(ArgAction::Append)
                 .help("List of filesystem paths"),
+        )
+        .arg(
+            Arg::new("list")
+                .long("list")
+                .short('l')
+                .action(ArgAction::SetTrue)
+                .help("Print sizes for each direct child of the given directories"),
         )
         .arg(
             Arg::new("threads")
@@ -132,6 +175,11 @@ fn main() {
     if let Some(n) = num_workers {
         disk_usage = disk_usage.num_workers(n);
     }
-    let result = disk_usage.count();
-    print_result(&result, size_format, verbose);
+    if matches.get_flag("list") {
+        let result = disk_usage.count_direct_children();
+        print_entries(&result, size_format, verbose);
+    } else {
+        let result = disk_usage.count();
+        print_result(&result, size_format, verbose);
+    }
 }
