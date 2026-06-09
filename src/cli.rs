@@ -68,9 +68,8 @@ fn format_bar(size: u64, total_size: u64) -> (String, f64) {
         return (" ".repeat(BAR_WIDTH as usize), 0.0);
     }
 
-    let mut bar_len =
-        (((size as u128) * (BAR_WIDTH as u128) + ((total_size as u128) / 2))
-            / (total_size as u128)) as u64;
+    let mut bar_len = (((size as u128) * (BAR_WIDTH as u128) + ((total_size as u128) / 2))
+        / (total_size as u128)) as u64;
     if bar_len == 0 && size > 0 {
         bar_len = 1;
     }
