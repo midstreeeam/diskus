@@ -65,8 +65,8 @@ Download the Linux Debian package from this fork's
 [release page](https://github.com/midstreeeam/diskus/releases) and install it directly with `dpkg`:
 
 ``` bash
-wget "https://github.com/midstreeeam/diskus/releases/download/v0.9.2/diskus_0.9.2_amd64.deb"
-sudo dpkg -i diskus_0.9.2_amd64.deb
+wget "https://github.com/midstreeeam/diskus/releases/download/v0.9.3/diskus_0.9.3_amd64.deb"
+sudo dpkg -i diskus_0.9.3_amd64.deb
 ```
 
 Prebuilt archives for Linux, macOS, and Windows are also attached to each release.
@@ -78,7 +78,7 @@ direct child under the requested directory without printing deeper nested entrie
 
 ``` bash
 > diskus -l ~/code
-   1.42 GB  ████████████████████████████████████████   100.0%  /project-a
+   1.42 GB  ███████████████████████████████████████    97.4%  /project-a
   37.21 MB  █                                            2.6%  /project-b
 ```
 
@@ -86,12 +86,13 @@ The companion `ku` command is the same direct-child chart without needing to pas
 
 ``` bash
 > ku ~/code
-   1.42 GB  ████████████████████████████████████████   100.0%  /project-a
+   1.42 GB  ███████████████████████████████████████    97.4%  /project-a
   37.21 MB  █                                            2.6%  /project-b
 ```
 
 Each reported directory is still traversed internally so its size is complete, but the output depth
-is limited to the direct children of the requested paths.
+is limited to the direct children of the requested paths. Percentages are relative to the total of
+the entries shown in the chart.
 
 ## Directory counting
 

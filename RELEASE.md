@@ -20,9 +20,9 @@ After a successful `master` build, the workflow publishes a release for the curr
 Manual releases are still supported by creating and pushing an annotated tag:
 
    ```bash
-   git tag -a v0.9.2 -m "Release v0.9.2"
+   git tag -a v0.9.3 -m "Release v0.9.3"
    git push origin master
-   git push origin v0.9.2
+   git push origin v0.9.3
    ```
 
 The `CICD` workflow publishes `.tar.gz`, `.zip`, and `.deb` assets to the GitHub release. End users can download those assets without installing Rust or Cargo.

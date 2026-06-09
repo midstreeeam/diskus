@@ -1,3 +1,7 @@
+# v0.9.3
+
+- Fixed `diskus -l`/`ku` chart percentages and bars to be relative to the total size of the displayed entries instead of the largest entry.
+
 # v0.9.2
 
 - Improved `diskus -l`/`--list` to print a sorted direct-child size chart with human-readable sizes, proportional bars, percentages, and root-relative paths.

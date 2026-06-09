@@ -63,20 +63,23 @@ fn display_path(path: &Path, roots: &[PathBuf]) -> String {
     path.to_string_lossy().into_owned()
 }
 
-fn format_bar(size: u64, max_size: u64) -> (String, f64) {
-    if max_size == 0 {
+fn format_bar(size: u64, total_size: u64) -> (String, f64) {
+    if total_size == 0 {
         return (" ".repeat(BAR_WIDTH as usize), 0.0);
     }
 
-    let mut bar_len = size.saturating_mul(BAR_WIDTH) / max_size;
+    let mut bar_len =
+        (((size as u128) * (BAR_WIDTH as u128) + ((total_size as u128) / 2))
+            / (total_size as u128)) as u64;
     if bar_len == 0 && size > 0 {
         bar_len = 1;
     }
+    bar_len = bar_len.min(BAR_WIDTH);
 
     let mut bar = "█".repeat(bar_len as usize);
     bar.push_str(&" ".repeat((BAR_WIDTH - bar_len) as usize));
 
-    let percentage = (size as f64) * 100.0 / (max_size as f64);
+    let percentage = (size as f64) * 100.0 / (total_size as f64);
     (bar, percentage)
 }
 
@@ -104,14 +107,13 @@ fn print_entries(
     let mut entries: Vec<_> = result.entries().iter().collect();
     entries.sort_by_key(|entry| Reverse(entry.result().ignore_errors().size_in_bytes()));
 
-    let max_size = entries
-        .first()
-        .map(|entry| entry.result().ignore_errors().size_in_bytes())
-        .unwrap_or(0);
+    let total_size = entries.iter().fold(0u64, |total, entry| {
+        total.saturating_add(entry.result().ignore_errors().size_in_bytes())
+    });
 
     for entry in entries {
         let size = entry.result().ignore_errors().size_in_bytes();
-        let (bar, percentage) = format_bar(size, max_size);
+        let (bar, percentage) = format_bar(size, total_size);
         println!(
             "{:>10}  {}  {:>6.1}%  {}",
             format_size(size, size_format),

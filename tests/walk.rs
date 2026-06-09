@@ -141,11 +141,13 @@ fn short_list_flag_outputs_direct_children() -> Result<(), Box<dyn Error>> {
 
     assert_eq!(lines.len(), 3);
     assert!(lines[0].contains("230 B"));
-    assert!(lines[0].contains("100.0%"));
+    assert!(lines[0].contains("65.7%"));
     assert!(lines[0].ends_with("/dir"));
     assert!(lines[1].contains("70 B"));
+    assert!(lines[1].contains("20.0%"));
     assert!(lines[1].ends_with("/beta-70-byte"));
     assert!(lines[2].contains("50 B"));
+    assert!(lines[2].contains("14.3%"));
     assert!(lines[2].ends_with("/alpha-50-byte"));
 
     Ok(())
@@ -172,10 +174,10 @@ fn ku_outputs_the_same_direct_child_chart() -> Result<(), Box<dyn Error>> {
 
     assert_eq!(lines.len(), 2);
     assert!(lines[0].contains("100 B"));
-    assert!(lines[0].contains("100.0%"));
+    assert!(lines[0].contains("66.7%"));
     assert!(lines[0].ends_with("/large-100-byte"));
     assert!(lines[1].contains("50 B"));
-    assert!(lines[1].contains("50.0%"));
+    assert!(lines[1].contains("33.3%"));
     assert!(lines[1].ends_with("/small-50-byte"));
 
     Ok(())
