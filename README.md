@@ -1,6 +1,6 @@
 # diskus
 
-[![CICD](https://github.com/sharkdp/diskus/actions/workflows/CICD.yml/badge.svg)](https://github.com/sharkdp/diskus/actions/workflows/CICD.yml)
+[![CICD](https://github.com/midstreeeam/diskus/actions/workflows/CICD.yml/badge.svg)](https://github.com/midstreeeam/diskus/actions/workflows/CICD.yml)
 
 *A minimal, fast alternative to `du -sh`.*
 
@@ -59,65 +59,14 @@ hyperfine --warmup 5 'diskus' 'du -sh' 'sn p -d0 -j8' 'dust -d0'
 
 ## Installation
 
-### On Debian-based systems
+### On Linux
 
-You can download the latest Debian package from the
-[release page](https://github.com/sharkdp/diskus/releases) and install it via `dpkg`:
+Download the Linux Debian package from this fork's
+[release page](https://github.com/midstreeeam/diskus/releases) and install it directly with `dpkg`:
 
 ``` bash
-wget "https://github.com/sharkdp/diskus/releases/download/v0.9.0/diskus_0.9.0_amd64.deb"
+wget "https://github.com/midstreeeam/diskus/releases/download/v0.9.0/diskus_0.9.0_amd64.deb"
 sudo dpkg -i diskus_0.9.0_amd64.deb
-```
-
-### On Arch-based systems
-
-``` bash
-pacman -S diskus
-```
-
-Or download [diskus-bin](https://aur.archlinux.org/packages/diskus-bin/) from the AUR.
-
-### On Void-based systems
-
-``` bash
-xbps-install diskus
-```
-
-### On macOS
-
-You can install `diskus` with [Homebrew](https://formulae.brew.sh/formula/diskus):
-```
-brew install diskus
-```
-
-Or with [MacPorts](https://ports.macports.org/port/diskus/summary):
-```
-sudo port install diskus
-```
-
-### On Haiku
-
-``` bash
-pkgman install diskus
-```
-
-### On NixOS
-
-```
-nix-env -iA nixos.diskus
-```
-
-Or add it to `environment.systemPackages` in your `configuration.nix`.
-
-### On other systems
-
-Check out the [release page](https://github.com/sharkdp/diskus/releases) for binary builds.
-
-### Via cargo
-
-If you have Rust 1.76 or higher, you can install `diskus` from source via `cargo`:
-```
-cargo install diskus
 ```
 
 ## Listing direct entries
