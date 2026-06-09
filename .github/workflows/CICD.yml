@@ -11,7 +11,10 @@ on:
     branches:
       - master
     tags:
-      - '*'
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   min_version:
@@ -19,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Install rust toolchain (v${{ env.MIN_SUPPORTED_RUST_VERSION }})
       uses: actions-rs/toolchain@v1
@@ -70,7 +73,7 @@ jobs:
           - { target: x86_64-unknown-linux-musl   , os: ubuntu-latest, use-cross: true }
     steps:
     - name: Checkout source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Install prerequisites
       shell: bash
@@ -302,31 +305,34 @@ jobs:
         fakeroot dpkg-deb --build "${DPKG_DIR}" "${DPKG_PATH}"
 
     - name: "Artifact upload: tarball"
-      uses: actions/upload-artifact@master
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.package.outputs.PKG_NAME }}
         path: ${{ steps.package.outputs.PKG_PATH }}
 
     - name: "Artifact upload: Debian package"
-      uses: actions/upload-artifact@master
+      uses: actions/upload-artifact@v4
       if: steps.debian-package.outputs.DPKG_NAME
       with:
         name: ${{ steps.debian-package.outputs.DPKG_NAME }}
         path: ${{ steps.debian-package.outputs.DPKG_PATH }}
 
-    - name: Check for release
-      id: is-release
+    - name: Collect release files
+      id: release-files
       shell: bash
+      if: startsWith(github.ref, 'refs/tags/v')
       run: |
-        unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
-        echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
+        {
+          echo "files<<EOF"
+          echo "${{ steps.package.outputs.PKG_PATH }}"
+          if [ -n "${{ steps.debian-package.outputs.DPKG_PATH }}" ]; then
+            echo "${{ steps.debian-package.outputs.DPKG_PATH }}"
+          fi
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Publish archives and packages
-      uses: softprops/action-gh-release@v1
-      if: steps.is-release.outputs.IS_RELEASE
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/v')
       with:
-        files: |
-          ${{ steps.package.outputs.PKG_PATH }}
-          ${{ steps.debian-package.outputs.DPKG_PATH }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        files: ${{ steps.release-files.outputs.files }}

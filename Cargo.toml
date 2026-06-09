@@ -2,12 +2,12 @@
 authors = ["David Peter <mail@david-peter.de>"]
 categories = ["command-line-utilities"]
 description = "A minimal, fast alternative to 'du -sh'."
-homepage = "https://github.com/sharkdp/diskus"
+homepage = "https://github.com/midstreeeam/diskus"
 license = "MIT OR Apache-2.0"
 name = "diskus"
 readme = "README.md"
-repository = "https://github.com/sharkdp/diskus"
-version = "0.9.0"
+repository = "https://github.com/midstreeeam/diskus"
+version = "0.9.1"
 edition = "2021"
 rust-version = "1.80"
 

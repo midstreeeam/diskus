@@ -1,3 +1,13 @@
+# v0.9.1
+
+## Features
+
+- Added `-l`/`--list` to print disk usage for each direct child of the requested directory.
+
+## Release
+
+- Prepared fork release artifacts so users can download prebuilt binaries and Debian packages from GitHub Releases.
+
 # v0.9.0
 
 
