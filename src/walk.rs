@@ -384,7 +384,8 @@ impl DiskUsage {
         let receiver_thread = thread::spawn(move || {
             let mut totals = vec![0; entry_count];
             let mut errors: Vec<Vec<Error>> = (0..entry_count).map(|_| Vec::new()).collect();
-            let mut ids = HashSet::new();
+            let mut ids: Vec<HashSet<UniqueID>> =
+                (0..entry_count).map(|_| HashSet::new()).collect();
 
             for msg in rx {
                 match msg {
@@ -394,7 +395,7 @@ impl DiskUsage {
                         size,
                     } => {
                         if let Some(unique_id) = unique_id {
-                            if ids.insert(unique_id) {
+                            if ids[index].insert(unique_id) {
                                 totals[index] += size;
                             }
                         } else {

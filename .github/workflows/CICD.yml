@@ -137,20 +137,21 @@ jobs:
         # Setup paths
         BIN_DIR="${{ env.CICD_INTERMEDIATES_DIR }}/stripped-release-bin/"
         mkdir -p "${BIN_DIR}"
-        BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
-        BIN_PATH="${BIN_DIR}/${BIN_NAME}"
 
-        # Copy the release build binary to the result location
-        cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
+        # Copy the release build binaries to the result location
+        for bin in "${{ env.PROJECT_NAME }}" ku; do
+          BIN_NAME="${bin}${EXE_suffix}"
+          BIN_PATH="${BIN_DIR}/${BIN_NAME}"
+          cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
 
-        # Also strip if possible
-        if [ -n "${STRIP}" ]; then
-          "${STRIP}" "${BIN_PATH}"
-        fi
+          # Also strip if possible
+          if [ -n "${STRIP}" ]; then
+            "${STRIP}" "${BIN_PATH}"
+          fi
+        done
 
-        # Let subsequent steps know where to find the (stripped) bin
-        echo "BIN_PATH=${BIN_PATH}" >> $GITHUB_OUTPUT
-        echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
+        # Let subsequent steps know where to find the (stripped) bins
+        echo "BIN_DIR=${BIN_DIR}" >> $GITHUB_OUTPUT
 
     - name: Set testing options
       id: test-options
@@ -181,11 +182,11 @@ jobs:
         ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
         mkdir -p "${ARCHIVE_DIR}"
 
-        # Binary
-        cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
+        # Binaries
+        cp "${{ steps.strip.outputs.BIN_DIR }}"/* "$ARCHIVE_DIR"
 
-        # Man page
-        cp 'doc/${{ env.PROJECT_NAME }}.1' "$ARCHIVE_DIR"
+        # Man pages
+        cp 'doc/${{ env.PROJECT_NAME }}.1' 'doc/ku.1' "$ARCHIVE_DIR"
 
         # README, LICENSE and CHANGELOG files
         cp "README.md" "LICENSE-MIT" "LICENSE-APACHE" "CHANGELOG.md" "$ARCHIVE_DIR"
@@ -228,12 +229,15 @@ jobs:
         DPKG_NAME="${DPKG_BASENAME}_${DPKG_VERSION}_${DPKG_ARCH}.deb"
         echo "DPKG_NAME=${DPKG_NAME}" >> $GITHUB_OUTPUT
 
-        # Binary
-        install -Dm755 "${{ steps.strip.outputs.BIN_PATH }}" "${DPKG_DIR}/usr/bin/${{ steps.strip.outputs.BIN_NAME }}"
+        # Binaries
+        install -Dm755 "${{ steps.strip.outputs.BIN_DIR }}/${{ env.PROJECT_NAME }}" "${DPKG_DIR}/usr/bin/${{ env.PROJECT_NAME }}"
+        install -Dm755 "${{ steps.strip.outputs.BIN_DIR }}/ku" "${DPKG_DIR}/usr/bin/ku"
 
-        # Man page
+        # Man pages
         install -Dm644 'doc/${{ env.PROJECT_NAME }}.1' "${DPKG_DIR}/usr/share/man/man1/${{ env.PROJECT_NAME }}.1"
+        install -Dm644 'doc/ku.1' "${DPKG_DIR}/usr/share/man/man1/ku.1"
         gzip -n --best "${DPKG_DIR}/usr/share/man/man1/${{ env.PROJECT_NAME }}.1"
+        gzip -n --best "${DPKG_DIR}/usr/share/man/man1/ku.1"
 
         # README and LICENSE
         install -Dm644 "README.md" "${DPKG_DIR}/usr/share/doc/${DPKG_BASENAME}/README.md"

@@ -16,9 +16,9 @@ GitHub Actions builds precompiled packages when a version tag is pushed.
 4. Create and push an annotated tag:
 
    ```bash
-   git tag -a v0.9.1 -m "Release v0.9.1"
+   git tag -a v0.9.2 -m "Release v0.9.2"
    git push origin master
-   git push origin v0.9.1
+   git push origin v0.9.2
    ```
 
 The `CICD` workflow publishes `.tar.gz`, `.zip`, and `.deb` assets to the GitHub release for the tag. End users can download those assets without installing Rust or Cargo.

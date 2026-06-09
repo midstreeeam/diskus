@@ -15,3 +15,6 @@ pub use crate::filesize::CountType;
 pub use crate::walk::{
     Directories, DiskUsage, DiskUsageEntriesResult, DiskUsageEntry, DiskUsageResult, Error,
 };
+
+#[cfg(feature = "cli")]
+pub mod cli;
