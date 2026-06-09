@@ -64,6 +64,49 @@ impl DiskUsageResult {
     }
 }
 
+/// The size result for one filesystem entry.
+#[derive(Debug)]
+pub struct DiskUsageEntry {
+    path: PathBuf,
+    result: DiskUsageResult,
+}
+
+impl DiskUsageEntry {
+    /// Returns the path this result belongs to.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Returns the disk usage result for this path.
+    pub fn result(&self) -> &DiskUsageResult {
+        &self.result
+    }
+}
+
+/// The result of a direct-entry disk usage computation.
+#[derive(Debug)]
+pub struct DiskUsageEntriesResult {
+    entries: Vec<DiskUsageEntry>,
+    errors: Vec<Error>,
+}
+
+impl DiskUsageEntriesResult {
+    /// Returns the results for direct entries below the requested root paths.
+    pub fn entries(&self) -> &[DiskUsageEntry] {
+        &self.entries
+    }
+
+    /// Returns errors encountered while resolving or reading the requested root paths.
+    pub fn errors(&self) -> &[Error] {
+        &self.errors
+    }
+
+    /// Returns `true` if no root or entry errors occurred during traversal.
+    pub fn is_ok(&self) -> bool {
+        self.errors.is_empty() && self.entries.iter().all(|entry| entry.result.is_ok())
+    }
+}
+
 /// A disk usage result where errors have been explicitly ignored.
 #[derive(Debug)]
 pub struct UncheckedDiskUsageResult {
@@ -80,6 +123,18 @@ impl UncheckedDiskUsageResult {
 enum Message {
     SizeEntry(Option<UniqueID>, u64),
     Error { error: Error },
+}
+
+enum EntryMessage {
+    SizeEntry {
+        index: usize,
+        unique_id: Option<UniqueID>,
+        size: u64,
+    },
+    Error {
+        index: usize,
+        error: Error,
+    },
 }
 
 fn walk(
@@ -130,6 +185,72 @@ fn walk(
         } else {
             tx_ref
                 .send(Message::Error {
+                    error: Error::NoMetadataForPath(entry.clone()),
+                })
+                .unwrap();
+        };
+    });
+}
+
+fn walk_entry(
+    tx: channel::Sender<EntryMessage>,
+    index: usize,
+    entries: &[PathBuf],
+    filesize_type: CountType,
+    directories: Directories,
+) {
+    entries.into_par_iter().for_each_with(tx, |tx_ref, entry| {
+        if let Ok(metadata) = entry.symlink_metadata() {
+            let is_dir = metadata.is_dir();
+
+            let should_count = match directories {
+                Directories::Included => true,
+                Directories::Excluded => !is_dir,
+                Directories::Auto => !is_dir || filesize_type == CountType::DiskUsage,
+            };
+
+            if should_count {
+                let unique_id = generate_unique_id(&metadata);
+                let size = filesize_type.size(&metadata);
+                tx_ref
+                    .send(EntryMessage::SizeEntry {
+                        index,
+                        unique_id,
+                        size,
+                    })
+                    .unwrap();
+            }
+
+            if is_dir {
+                let mut children = vec![];
+                match fs::read_dir(entry) {
+                    Ok(child_entries) => {
+                        for child_entry in child_entries.flatten() {
+                            children.push(child_entry.path());
+                        }
+                    }
+                    Err(_) => {
+                        tx_ref
+                            .send(EntryMessage::Error {
+                                index,
+                                error: Error::CouldNotReadDir(entry.clone()),
+                            })
+                            .unwrap();
+                    }
+                }
+
+                walk_entry(
+                    tx_ref.clone(),
+                    index,
+                    &children[..],
+                    filesize_type,
+                    directories,
+                );
+            };
+        } else {
+            tx_ref
+                .send(EntryMessage::Error {
+                    index,
                     error: Error::NoMetadataForPath(entry.clone()),
                 })
                 .unwrap();
@@ -213,6 +334,115 @@ impl DiskUsage {
     /// Run the count and return only the size, ignoring any errors.
     pub fn count_ignoring_errors(&self) -> u64 {
         self.count_inner().0
+    }
+
+    /// Run the count for each direct child of the configured root directories.
+    ///
+    /// This only changes which entries are reported: each direct child is still
+    /// traversed recursively so directories report their full size. The regular
+    /// [`DiskUsage::count`] path is separate and keeps its original fast total-only
+    /// aggregation.
+    pub fn count_direct_children(&self) -> DiskUsageEntriesResult {
+        let (paths, errors) = self.direct_child_paths();
+        let results = self.count_entries(paths);
+        DiskUsageEntriesResult {
+            entries: results,
+            errors,
+        }
+    }
+
+    fn direct_child_paths(&self) -> (Vec<PathBuf>, Vec<Error>) {
+        let mut paths = Vec::new();
+        let mut errors = Vec::new();
+
+        for root in &self.root_directories {
+            match root.symlink_metadata() {
+                Ok(metadata) if metadata.is_dir() => match fs::read_dir(root) {
+                    Ok(child_entries) => {
+                        for child_entry in child_entries.flatten() {
+                            paths.push(child_entry.path());
+                        }
+                    }
+                    Err(_) => errors.push(Error::CouldNotReadDir(root.clone())),
+                },
+                Ok(_) => paths.push(root.clone()),
+                Err(_) => errors.push(Error::NoMetadataForPath(root.clone())),
+            }
+        }
+
+        (paths, errors)
+    }
+
+    fn count_entries(&self, paths: Vec<PathBuf>) -> Vec<DiskUsageEntry> {
+        if paths.is_empty() {
+            return Vec::new();
+        }
+
+        let (tx, rx) = channel::unbounded();
+        let entry_count = paths.len();
+
+        let receiver_thread = thread::spawn(move || {
+            let mut totals = vec![0; entry_count];
+            let mut errors: Vec<Vec<Error>> = (0..entry_count).map(|_| Vec::new()).collect();
+            let mut ids = HashSet::new();
+
+            for msg in rx {
+                match msg {
+                    EntryMessage::SizeEntry {
+                        index,
+                        unique_id,
+                        size,
+                    } => {
+                        if let Some(unique_id) = unique_id {
+                            if ids.insert(unique_id) {
+                                totals[index] += size;
+                            }
+                        } else {
+                            totals[index] += size;
+                        }
+                    }
+                    EntryMessage::Error { index, error } => {
+                        errors[index].push(error);
+                    }
+                }
+            }
+
+            (totals, errors)
+        });
+
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(self.num_workers)
+            .build()
+            .unwrap();
+        pool.install(|| {
+            paths
+                .par_iter()
+                .enumerate()
+                .for_each_with(tx, |tx_ref, (index, path)| {
+                    walk_entry(
+                        tx_ref.clone(),
+                        index,
+                        std::slice::from_ref(path),
+                        self.count_type,
+                        self.directories,
+                    );
+                })
+        });
+
+        let (totals, errors) = receiver_thread.join().unwrap();
+
+        paths
+            .into_iter()
+            .zip(totals)
+            .zip(errors)
+            .map(|((path, size_in_bytes), errors)| DiskUsageEntry {
+                path,
+                result: DiskUsageResult {
+                    size_in_bytes,
+                    errors,
+                },
+            })
+            .collect()
     }
 
     fn count_inner(&self) -> (u64, Vec<Error>) {

@@ -120,6 +120,20 @@ If you have Rust 1.76 or higher, you can install `diskus` from source via `cargo
 cargo install diskus
 ```
 
+## Listing direct entries
+
+By default, `diskus` prints a single total. Use `-l`/`--list` to print the size of each direct child
+under the requested directory without printing deeper nested entries:
+
+``` bash
+> diskus -l ~/code
+1.42 GB (1,421,991,936 bytes)    /home/user/code/project-a
+37.21 MB (37,210,112 bytes)      /home/user/code/project-b
+```
+
+Each reported directory is still traversed internally so its size is complete, but the output depth
+is limited to the direct children of the requested paths.
+
 ## Directory counting
 
 `diskus` matches the behavior of `du` regarding directory entries:
