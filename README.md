@@ -61,15 +61,13 @@ hyperfine --warmup 5 'diskus' 'du -sh' 'sn p -d0 -j8' 'dust -d0'
 
 ### On Linux
 
-Install this fork directly from the [`midstreeeam/diskus`](https://github.com/midstreeeam/diskus)
-repository with Cargo:
+Download the Linux Debian package from this fork's
+[release page](https://github.com/midstreeeam/diskus/releases) and install it directly with `dpkg`:
 
 ``` bash
-cargo install --git https://github.com/midstreeeam/diskus diskus
+wget "https://github.com/midstreeeam/diskus/releases/download/v0.9.0/diskus_0.9.0_amd64.deb"
+sudo dpkg -i diskus_0.9.0_amd64.deb
 ```
-
-This requires Rust 1.76 or higher. If you do not have Rust installed yet, install it first with
-[rustup](https://rustup.rs/), then run the `cargo install` command above.
 
 ## Listing direct entries
 
