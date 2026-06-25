@@ -139,16 +139,34 @@ fn short_list_flag_outputs_direct_children() -> Result<(), Box<dyn Error>> {
     let stdout = String::from_utf8(output.stdout)?;
     let lines: Vec<_> = stdout.lines().collect();
 
-    assert_eq!(lines.len(), 3);
-    assert!(lines[0].contains("230 B"));
-    assert!(lines[0].contains("65.7%"));
-    assert!(lines[0].ends_with("/dir"));
-    assert!(lines[1].contains("70 B"));
-    assert!(lines[1].contains("20.0%"));
-    assert!(lines[1].ends_with("/beta-70-byte"));
-    assert!(lines[2].contains("50 B"));
-    assert!(lines[2].contains("14.3%"));
-    assert!(lines[2].ends_with("/alpha-50-byte"));
+    assert_eq!(lines.len(), 6);
+    assert!(lines[0].contains("Size"));
+    assert!(lines[0].contains("Share"));
+    assert!(lines[0].contains("Usage"));
+    assert!(lines[0].contains("Path"));
+
+    let dir = lines
+        .iter()
+        .find(|line| line.ends_with("/dir"))
+        .expect("dir entry is shown");
+    assert!(dir.contains("230 B"));
+    assert!(dir.contains("65.7%"));
+
+    let beta = lines
+        .iter()
+        .find(|line| line.ends_with("/beta-70-byte"))
+        .expect("beta entry is shown");
+    assert!(beta.contains("70 B"));
+    assert!(beta.contains("20.0%"));
+
+    let alpha = lines
+        .iter()
+        .find(|line| line.ends_with("/alpha-50-byte"))
+        .expect("alpha entry is shown");
+    assert!(alpha.contains("50 B"));
+    assert!(alpha.contains("14.3%"));
+
+    assert_eq!(lines[5], "Total size: 350 B (350 bytes)");
 
     Ok(())
 }
@@ -172,13 +190,23 @@ fn ku_outputs_the_same_direct_child_chart() -> Result<(), Box<dyn Error>> {
     let stdout = String::from_utf8(output.stdout)?;
     let lines: Vec<_> = stdout.lines().collect();
 
-    assert_eq!(lines.len(), 2);
-    assert!(lines[0].contains("100 B"));
-    assert!(lines[0].contains("66.7%"));
-    assert!(lines[0].ends_with("/large-100-byte"));
-    assert!(lines[1].contains("50 B"));
-    assert!(lines[1].contains("33.3%"));
-    assert!(lines[1].ends_with("/small-50-byte"));
+    assert_eq!(lines.len(), 5);
+
+    let large = lines
+        .iter()
+        .find(|line| line.ends_with("/large-100-byte"))
+        .expect("large entry is shown");
+    assert!(large.contains("100 B"));
+    assert!(large.contains("66.7%"));
+
+    let small = lines
+        .iter()
+        .find(|line| line.ends_with("/small-50-byte"))
+        .expect("small entry is shown");
+    assert!(small.contains("50 B"));
+    assert!(small.contains("33.3%"));
+
+    assert_eq!(lines[4], "Total size: 150 B (150 bytes)");
 
     Ok(())
 }

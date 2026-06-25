@@ -10,6 +10,13 @@ use crate::{CountType, Directories, DiskUsage, DiskUsageEntriesResult, DiskUsage
 
 const BAR_WIDTH: u64 = 40;
 
+struct DisplayEntry {
+    size: String,
+    share: String,
+    bar: String,
+    path: String,
+}
+
 fn print_error(err: &Error) {
     match err {
         Error::NoMetadataForPath(path) => {
@@ -65,7 +72,7 @@ fn display_path(path: &Path, roots: &[PathBuf]) -> String {
 
 fn format_bar(size: u64, total_size: u64) -> (String, f64) {
     if total_size == 0 {
-        return (" ".repeat(BAR_WIDTH as usize), 0.0);
+        return ("░".repeat(BAR_WIDTH as usize), 0.0);
     }
 
     let mut bar_len = (((size as u128) * (BAR_WIDTH as u128) + ((total_size as u128) / 2))
@@ -76,10 +83,14 @@ fn format_bar(size: u64, total_size: u64) -> (String, f64) {
     bar_len = bar_len.min(BAR_WIDTH);
 
     let mut bar = "█".repeat(bar_len as usize);
-    bar.push_str(&" ".repeat((BAR_WIDTH - bar_len) as usize));
+    bar.push_str(&"░".repeat((BAR_WIDTH - bar_len) as usize));
 
     let percentage = (size as f64) * 100.0 / (total_size as f64);
     (bar, percentage)
+}
+
+fn separator(width: usize) -> String {
+    "─".repeat(width)
 }
 
 fn print_entries(
@@ -110,17 +121,69 @@ fn print_entries(
         total.saturating_add(entry.result().ignore_errors().size_in_bytes())
     });
 
-    for entry in entries {
-        let size = entry.result().ignore_errors().size_in_bytes();
-        let (bar, percentage) = format_bar(size, total_size);
+    let display_entries: Vec<_> = entries
+        .into_iter()
+        .map(|entry| {
+            let size = entry.result().ignore_errors().size_in_bytes();
+            let (bar, percentage) = format_bar(size, total_size);
+            DisplayEntry {
+                size: format_size(size, size_format),
+                share: format!("{percentage:.1}%"),
+                bar,
+                path: display_path(entry.path(), roots),
+            }
+        })
+        .collect();
+
+    let total_size_text = format_size(total_size, size_format);
+    let size_width = display_entries
+        .iter()
+        .map(|entry| entry.size.len())
+        .chain([total_size_text.len(), "Size".len()])
+        .max()
+        .unwrap();
+    let share_width = display_entries
+        .iter()
+        .map(|entry| entry.share.len())
+        .chain(["Share".len()])
+        .max()
+        .unwrap();
+    let path_width = display_entries
+        .iter()
+        .map(|entry| entry.path.len())
+        .chain(["Path".len()])
+        .max()
+        .unwrap();
+    let table_width = size_width + share_width + BAR_WIDTH as usize + path_width + 6;
+
+    println!(
+        "{:>size_width$}  {:>share_width$}  {:<bar_width$}  Path",
+        "Size",
+        "Share",
+        "Usage",
+        size_width = size_width,
+        share_width = share_width,
+        bar_width = BAR_WIDTH as usize
+    );
+
+    for entry in display_entries {
         println!(
-            "{:>10}  {}  {:>6.1}%  {}",
-            format_size(size, size_format),
-            bar,
-            percentage,
-            display_path(entry.path(), roots)
+            "{:>size_width$}  {:>share_width$}  {}  {}",
+            entry.size,
+            entry.share,
+            entry.bar,
+            entry.path,
+            size_width = size_width,
+            share_width = share_width
         );
     }
+
+    println!("{}", separator(table_width));
+    println!(
+        "Total size: {} ({:} bytes)",
+        total_size_text,
+        total_size.to_formatted_string(&Locale::en)
+    );
 }
 
 fn build_command(name: &'static str, about: &'static str, include_list: bool) -> Command {
@@ -169,7 +232,9 @@ fn build_command(name: &'static str, about: &'static str, include_list: bool) ->
                 .long("list")
                 .short('l')
                 .action(ArgAction::SetTrue)
-                .help("Print a sorted direct-child size chart for the given directories"),
+                .help(
+                    "Print a sorted direct-child size chart with a total-size footer for the given directories",
+                ),
         );
     }
 
@@ -252,6 +317,6 @@ pub fn run_ku() {
         false,
         true,
         "ku",
-        "Print a sorted direct-child disk usage chart",
+        "Print a sorted direct-child disk usage chart with a total-size footer",
     );
 }

@@ -1,3 +1,8 @@
+# v0.9.4
+
+- Added a `Total size` footer to the `ku` and `diskus -l` direct-child charts.
+- Refined the chart layout with column headers, aligned widths, a separator, and visible empty bar segments.
+
 # v0.9.3
 
 - Fixed `diskus -l`/`ku` chart percentages and bars to be relative to the total size of the displayed entries instead of the largest entry.
