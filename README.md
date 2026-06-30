@@ -65,8 +65,8 @@ Download the Linux Debian package from this fork's
 [release page](https://github.com/midstreeeam/diskus/releases) and install it directly with `dpkg`:
 
 ``` bash
-wget "https://github.com/midstreeeam/diskus/releases/download/v0.9.4/diskus_0.9.4_amd64.deb"
-sudo dpkg -i diskus_0.9.4_amd64.deb
+wget "https://github.com/midstreeeam/diskus/releases/download/v0.9.5/diskus_0.9.5_amd64.deb"
+sudo dpkg -i diskus_0.9.5_amd64.deb
 ```
 
 Prebuilt archives for Linux, macOS, and Windows are also attached to each release.

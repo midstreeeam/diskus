@@ -1,4 +1,4 @@
-# Unreleased
+# v0.9.5
 
 - Smoothed the `ku` and `diskus -l` usage bars with eighth-cell Unicode block segments.
 
