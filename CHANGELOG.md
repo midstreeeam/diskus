@@ -1,3 +1,7 @@
+# Unreleased
+
+- Smoothed the `ku` and `diskus -l` usage bars with eighth-cell Unicode block segments.
+
 # v0.9.4
 
 - Added a `Total size` footer to the `ku` and `diskus -l` direct-child charts.

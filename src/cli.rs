@@ -9,6 +9,8 @@ use num_format::{Locale, ToFormattedString};
 use crate::{CountType, Directories, DiskUsage, DiskUsageEntriesResult, DiskUsageResult, Error};
 
 const BAR_WIDTH: u64 = 40;
+const BAR_PARTS_PER_CELL: u64 = 8;
+const PARTIAL_BLOCKS: [&str; 8] = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"];
 
 struct DisplayEntry {
     size: String,
@@ -75,15 +77,22 @@ fn format_bar(size: u64, total_size: u64) -> (String, f64) {
         return ("░".repeat(BAR_WIDTH as usize), 0.0);
     }
 
-    let mut bar_len = (((size as u128) * (BAR_WIDTH as u128) + ((total_size as u128) / 2))
+    let bar_parts = BAR_WIDTH * BAR_PARTS_PER_CELL;
+    let mut filled_parts = (((size as u128) * (bar_parts as u128) + ((total_size as u128) / 2))
         / (total_size as u128)) as u64;
-    if bar_len == 0 && size > 0 {
-        bar_len = 1;
+    if filled_parts == 0 && size > 0 {
+        filled_parts = 1;
     }
-    bar_len = bar_len.min(BAR_WIDTH);
+    filled_parts = filled_parts.min(bar_parts);
 
-    let mut bar = "█".repeat(bar_len as usize);
-    bar.push_str(&"░".repeat((BAR_WIDTH - bar_len) as usize));
+    let full_cells = filled_parts / BAR_PARTS_PER_CELL;
+    let partial_cell = filled_parts % BAR_PARTS_PER_CELL;
+    let partial_cells = if partial_cell > 0 { 1 } else { 0 };
+    let empty_cells = BAR_WIDTH - full_cells - partial_cells;
+
+    let mut bar = "█".repeat(full_cells as usize);
+    bar.push_str(PARTIAL_BLOCKS[partial_cell as usize]);
+    bar.push_str(&"░".repeat(empty_cells as usize));
 
     let percentage = (size as f64) * 100.0 / (total_size as f64);
     (bar, percentage)
@@ -319,4 +328,27 @@ pub fn run_ku() {
         "ku",
         "Print a sorted direct-child disk usage chart with a total-size footer",
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_bar, BAR_WIDTH};
+
+    #[test]
+    fn format_bar_uses_eighth_cell_steps() {
+        let (bar, percentage) = format_bar(1, 320);
+
+        assert_eq!(bar, format!("{}{}", "▏", "░".repeat(39)));
+        assert_eq!(bar.chars().count(), BAR_WIDTH as usize);
+        assert!((percentage - 0.3125).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn format_bar_keeps_full_bar_width() {
+        let (bar, percentage) = format_bar(320, 320);
+
+        assert_eq!(bar, "█".repeat(BAR_WIDTH as usize));
+        assert_eq!(bar.chars().count(), BAR_WIDTH as usize);
+        assert_eq!(percentage, 100.0);
+    }
 }
